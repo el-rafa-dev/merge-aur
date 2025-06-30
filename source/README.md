@@ -20,7 +20,7 @@ Clone the repo with:
 ```git clone https://github.com/el-rafa-dev/merge-aur.git ```
 
 Run the command:
- ```cd merge```
+ ```cd merge-aur && cd source```
 
 and then:
 ```make```
