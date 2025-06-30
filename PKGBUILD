@@ -12,10 +12,8 @@ source=("https://sourceforge.net/projects/merge-aur/files/merge.1.0.tar.xz")
 sha256sums=('31d76340e1679da93b92f9c0a8bbf13dd7ba259d9214923ea03406e4ddc19759')
 
 build() {
-    #cd "${srcdir}"
   tar -xf merge.1.0.tar.xz
   
-  # Agora, main.cc deve estar diretamente em "${srcdir}"
   g++ -std=c++17 src/main.cc -o merge -lcurl -lstdc++fs -I.
 }
 
