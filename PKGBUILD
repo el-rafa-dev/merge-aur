@@ -1,3 +1,4 @@
+#maintainer Rafael de Sousa - el-rafa-dev
 
 pkgname=merge-aur
 pkgver=1.0 #
