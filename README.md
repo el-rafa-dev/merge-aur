@@ -36,9 +36,9 @@ For uninstall, use ```sudo rm -r -f /usr/bin/merge``` -->
 ## Installation with MakePkg
 For installation with MakePkg 
 Clone the repo with:
-```git clone https://github.com/el-rafa-dev/merge.git ```
+```git clone https://github.com/el-rafa-dev/merge-aur ```
 
-Run on terminal: ```cd merge``` and then ```makepkg -si```
+Run on terminal: ```cd merge-aur``` and then ```makepkg -si```
 
 For uninstall, use ```sudo pacman -R merge```
 
