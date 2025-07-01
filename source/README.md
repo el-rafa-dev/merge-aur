@@ -4,7 +4,7 @@
 <h2 align="center">Merge, another <a href="https://aur.archlinux.org/">AUR</a> helper</h2>
 
 <p align="center"> 
-Yep, another aur helper made by me but now in C++ (the old one was in shell script)... Make good use of it :)
+Yes, another aur helper made by me but now in C++ (the old one was in shell script)... Make good use of it :)
 </p>
 </p>
 
