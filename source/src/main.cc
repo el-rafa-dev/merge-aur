@@ -197,9 +197,13 @@ int verify(std::string path)
         "sudo ",
         "dd if=",
         "mkfs",
+        "git clone",
         "wget ",
         "curl ",
-        ":(){ :|: & };:" // fork bomb
+        ":(){ :|: & };:",// fork bomb
+        "groupadd",
+        "useradd",
+        "su"
     };
 
     int line_num = 0;
