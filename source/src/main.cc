@@ -215,14 +215,15 @@ int verify(std::string path)
             found_something = true;
             return 1;
         }
-        else if (build_func.find(pattern) != std::string::npos)
+
+        if (build_func.find(pattern) != std::string::npos)
         {
             std::cout << ARROW_RED << "!!! possible malicious command in build() function block: '"
                       << pattern << "'\n";
             found_something = true;
             return 1;
         }
-        else if (package_func.find(pattern) != std::string::npos)
+        if (package_func.find(pattern) != std::string::npos)
         {
             std::cout << ARROW_RED << "!!! possible malicious command in package() function block: '"
                       << pattern << "'\n";
