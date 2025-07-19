@@ -64,7 +64,7 @@ public:
 
             if (res != CURLE_OK)
             {
-                std::cerr << ARROW_RED <<  "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+                std::cerr << ARROW_RED << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
                 response_buffer.clear();
             }
 
@@ -200,12 +200,11 @@ int verify(std::string path)
         "git clone",
         "wget ",
         "curl ",
-        ":(){ :|: & };:",// fork bomb
+        ":(){ :|: & };:", // fork bomb
         "groupadd",
         "useradd",
         "su",
-        "systemctl"
-    };
+        "systemctl"};
 
     int line_num = 0;
     bool found_something = false;
@@ -244,7 +243,7 @@ int verify(std::string path)
     return 0;
 }
 
-bool askUserConfirmation(const std::string &message)
+bool askUserConfirmation(const std::string &message, bool exits)
 {
     std::string response;
 
@@ -253,7 +252,6 @@ bool askUserConfirmation(const std::string &message)
         std::cout << ARROW_BLUE << message << " [Y/y/S/s or N/n]: ";
         std::getline(std::cin, response);
 
-        // Converte para minúsculo para comparar
         for (auto &c : response)
             c = std::tolower(c);
 
@@ -263,12 +261,16 @@ bool askUserConfirmation(const std::string &message)
         }
         else if (response == "N" || response == "n")
         {
-            std::cout << "\x1b[31m\x1b[1m==> \x1b[0m" << "Exited.\n";
-            exit(0);
+            if (exits == true)
+            {
+               std::cout << "\x1b[31m\x1b[1m==> \x1b[0m" << "Exited.\n";
+               exit(0); 
+            }
+            return false;
         }
         else
         {
-            std::cout << "\x1b[31m\x1b[1m==> \x1b[0m" << "Invalid answer. Try Y/y/S/s for confirm or N/n to exit .\n";
+            std::cout << "\x1b[31m\x1b[1m==> \x1b[0m" << "Invalid answer. Try Y/y/S/s for confirm or N/n to exit.\n";
         }
     }
 }
@@ -307,9 +309,15 @@ int install(const std::string &name)
 
     std::cout << ARROW_BLUE << "Now start the PKGBUILD verification for possible malicious commands...\n";
     std::string pkgbuild_path = temp_dir_path.string() + "/PKGBUILD";
+    // for testing
+    // std::string pkgbuild_path = "/home/el-rafa/merge/PKGBUILD";
+
+    std::fstream fi(pkgbuild_path, std::ios::in);
 
     int vres = verify(pkgbuild_path);
     bool accepted = false;
+
+    bool showcode = false;
 
     if (vres != 1)
     {
@@ -317,7 +325,30 @@ int install(const std::string &name)
     }
     else if (vres == 1)
     {
-        accepted = askUserConfirmation("Malicious command found!! Do you want continue (remembering that this could break your system or worse!)? ");
+        std::cout << "\x1b[31m\x1b[1m==> " << "Malicious command found!!\n";
+        showcode = askUserConfirmation("You want to see the code (recommended)?", false);
+        if (showcode == true)
+        {
+            if (fi.is_open())
+            {
+                std::string line, code;
+
+                while (std::getline(fi, line))
+                {
+                    code += line + "\n";
+                }
+
+                fi.close();
+
+                std::cout << "\t\t\tPKGBUILD Code:\n";
+                std::cout << "\x1b[37m\x1b[1m" << code << "\x1b[0m\n";
+            }
+            else
+            {
+                std::cout << ARROW_RED << "Could not open the PKGBUILD file.\n";
+            }
+        }
+        accepted = askUserConfirmation("Do you want continue (remembering that this could break your system or worse!)? ", true);
     }
 
     std::string makepkg_cmd = "cd " + temp_dir_path.string() + " && makepkg -si --noconfirm";
@@ -326,7 +357,7 @@ int install(const std::string &name)
     if (accepted == true)
     {
         std::cout << ARROW_BLUE << "Now calling makepkg with command: " << makepkg_cmd << "...\n";
-        if (askUserConfirmation("Do you want continue? This will install the '" + name + "' package") == true)
+        if (askUserConfirmation("Do you want continue? This will install the '" + name + "' package", true) == true)
         {
             result_makepkg = std::system(makepkg_cmd.c_str());
         }
@@ -334,7 +365,7 @@ int install(const std::string &name)
     else
     {
         std::cout << ARROW_BLUE << "Now calling makepkg with command: " << makepkg_cmd << "...\n";
-        if (askUserConfirmation("Do you want continue? This will install the '" + name + "' package") == true)
+        if (askUserConfirmation("Do you want continue? This will install the '" + name + "' package", true) == true)
         {
             result_makepkg = std::system(makepkg_cmd.c_str());
         }
@@ -355,7 +386,8 @@ int install(const std::string &name)
         return result_makepkg;
     }
 
-    std::cout << ARROW_GREEN << "Makepkg executed successfully! Package installed!\n" << ARROW_BLUE << "Now cleaning the " << name << " directory...\n";
+    std::cout << ARROW_GREEN << "Makepkg executed successfully! Package installed!\n"
+              << ARROW_BLUE << "Now cleaning the " << name << " directory...\n";
     try
     {
         fs::remove_all(temp_dir_path);
