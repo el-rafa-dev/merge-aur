@@ -11,7 +11,7 @@ license=('MIT')
 depends=('curl' 'git')
 
 source=("https://github.com/el-rafa-dev/merge-aur/releases/download/v1.2-2/merge.1.2-2.zip")
-sha256sums=('65ad1982778b35b491ec03d88caf7fbc1bf51c566ed8ec9a7b2766023da4b71b')
+sha256sums=('2b26976196f9fd1631889f4a5e2c7a069520cc745bc4845a0e9eb083e32004b0')
 
 build(){
   unzip merge.${pkgver}-${pkgrel}.zip

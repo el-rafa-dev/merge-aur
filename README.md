@@ -15,23 +15,6 @@ This is not a package manager... The program only helps you to install a package
 ## Dependencies
 MakePkg, GIT and Curl must be installed on your Arch Linux (or derivatives)
 
-<!-- ## Installation - Manually
-Clone the repo with:
-```git clone https://github.com/el-rafa-dev/merge.git ```
-
-Run the command:
-
- ```cd merge```
-
-and then:
-
-```make```
-to compile and generate the executable
- or 
- ```make && make install``` to compile, generate the executable and install on the ```/usr/bin``` directory.
-
-For uninstall, use ```sudo rm -r -f /usr/bin/merge``` -->
-
 
 ## Installation with MakePkg
 For installation with MakePkg 
