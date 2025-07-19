@@ -355,7 +355,7 @@ int install(const std::string &name)
         return result_makepkg;
     }
 
-    std::cout << ARROW_RED << "Makepkg executed successfully! Package installed!\n" << ARROW_BLUE << "Now cleaning the " << name << " directory...\n";
+    std::cout << ARROW_GREEN << "Makepkg executed successfully! Package installed!\n" << ARROW_BLUE << "Now cleaning the " << name << " directory...\n";
     try
     {
         fs::remove_all(temp_dir_path);
