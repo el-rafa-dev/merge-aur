@@ -14,7 +14,6 @@ source=("https://github.com/el-rafa-dev/merge-aur/releases/download/v1.2-2/merge
 sha256sums=('2b26976196f9fd1631889f4a5e2c7a069520cc745bc4845a0e9eb083e32004b0')
 
 build(){
-  unzip merge.${pkgver}-${pkgrel}.zip
   g++ -std=c++17 src/main.cc -o merge -lcurl -lstdc++fs -I.
 }
 
