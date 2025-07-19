@@ -11,7 +11,7 @@ license=('MIT')
 depends=('curl' 'git')
 
 source=("https://github.com/el-rafa-dev/merge-aur/releases/download/v1.2-2/merge.1.2-2.zip")
-sha256sums=('2b26976196f9fd1631889f4a5e2c7a069520cc745bc4845a0e9eb083e32004b0')
+sha256sums=("8890945bc1f6746e4c619c237b3876cdbcbc2dcbb96dff49beba8bf8378e8c1f")
 
 build(){
   g++ -std=c++17 src/main.cc -o merge -lcurl -lstdc++fs -I.
