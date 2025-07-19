@@ -219,7 +219,6 @@ int verify(std::string path)
             found_something = true;
             return 1;
         }
-
         if (build_func.find(pattern) != std::string::npos)
         {
             std::cout << ARROW_RED << "!!! possible malicious command in build() function block: '"
@@ -310,7 +309,7 @@ int install(const std::string &name)
     std::cout << ARROW_BLUE << "Now start the PKGBUILD verification for possible malicious commands...\n";
     std::string pkgbuild_path = temp_dir_path.string() + "/PKGBUILD";
     // for testing
-    // std::string pkgbuild_path = "/home/el-rafa/merge/PKGBUILD";
+    //std::string pkgbuild_path = "/home/el-rafa/merge/PKGBUILD";
 
     std::fstream fi(pkgbuild_path, std::ios::in);
 
