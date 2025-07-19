@@ -203,7 +203,8 @@ int verify(std::string path)
         ":(){ :|: & };:",// fork bomb
         "groupadd",
         "useradd",
-        "su"
+        "su",
+        "systemctl"
     };
 
     int line_num = 0;
