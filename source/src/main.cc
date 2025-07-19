@@ -7,14 +7,21 @@
 #include <filesystem>
 #include <limits>
 #include <vector>
+#include <fstream>
 #include <algorithm>
 
 #include <curl/curl.h>
 
 #include "json/json.hpp"
+#include "utils.hpp"
+
+#define ARROW_GREEN "\x1b[32m\x1b[1m==> \x1b[0m"
+#define ARROW_RED "\x1b[31m\x1b[1m==> Error: \x1b[0m"
+#define ARROW_BLUE "\x1b[34m\x1b[1m==> \x1b[0m"
 
 #define APP_MAJOR_VERSION 1
-#define APP_MINOR_VERSION 0
+#define APP_MINOR_VERSION 2
+#define APP_RELEASE 2
 #define APP_AUTHOR " Copyright (C) Rafael - el-rafa-dev (https://github.com/el-rafa-dev)"
 #define APP_LIBS_USED "JSON by nlohmann (https://github.com/nlohmann/json)"
 
@@ -57,7 +64,7 @@ public:
 
             if (res != CURLE_OK)
             {
-                std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+                std::cerr << ARROW_RED <<  "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
                 response_buffer.clear();
             }
 
@@ -65,7 +72,7 @@ public:
         }
         else
         {
-            std::cerr << "Failed to initialize CURL easy handle." << std::endl;
+            std::cerr << ARROW_RED << "Failed to initialize CURL easy handle." << std::endl;
         }
         return response_buffer;
     }
@@ -82,9 +89,12 @@ private:
 
 bool isInteger(const std::string &str)
 {
-    if (str.empty()) return false;
-    for (char c : str) {
-        if (!std::isdigit(static_cast<unsigned char>(c))) {
+    if (str.empty())
+        return false;
+    for (char c : str)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(c)))
+        {
             return false;
         }
     }
@@ -96,13 +106,13 @@ int search(const std::string &name, int limit)
     CurlRequester requester;
     std::string api = AUR_SEARCH_API + name;
 
-    std::cout << "Searching for '" << name << "'...\n";
+    std::cout << ARROW_BLUE << "Searching for '" << name << "'...\n";
 
     std::string json_content = requester.getUrlContent(api);
 
     if (json_content.empty())
     {
-        std::cerr << "Could not get JSON content from URL. Exiting." << std::endl;
+        std::cerr << ARROW_RED << "Could not get JSON content from URL. Exiting." << std::endl;
         return 1;
     }
 
@@ -113,15 +123,15 @@ int search(const std::string &name, int limit)
         if (parsed_json.contains("resultcount") && parsed_json["resultcount"].is_number())
         {
             int count = parsed_json["resultcount"].get<int>();
-            std::cout << "Total results found: " << count << std::endl;
 
             if (count > 0 && parsed_json.contains("results") && parsed_json["results"].is_array())
             {
-                std::cout << "\n--- Package info ---\n";
+                std::cout << ARROW_GREEN << "--- Package info ---\n";
                 int displayed_count = 0;
                 for (const auto &package : parsed_json["results"])
                 {
-                    if (limit > 0 && displayed_count >= limit) {
+                    if (limit > 0 && displayed_count >= limit)
+                    {
                         break;
                     }
 
@@ -142,27 +152,119 @@ int search(const std::string &name, int limit)
                     std::cout << "--------------------------------\n";
                     displayed_count++;
                 }
-                 if (limit > 0 && count > limit) {
-                    std::cout << "Displayed " << displayed_count << " out of " << count << " total results.\n";
+                std::cout << ARROW_GREEN << "Total results found: " << count << std::endl;
+                if (limit > 0 && count > limit)
+                {
+                    std::cout << ARROW_GREEN << "Displayed " << displayed_count << " out of " << count << " total results.\n";
                 }
             }
             else
             {
-                std::cout << "No results found for '" << name << "'.\n";
+                std::cout << ARROW_GREEN << "No results found for '" << name << "'.\n";
             }
         }
     }
     catch (const json::parse_error &e)
     {
-        std::cerr << "JSON parsing error: " << e.what() << std::endl;
+        std::cerr << ARROW_RED << "JSON parsing error: " << e.what() << std::endl;
         return 1;
     }
     catch (const json::exception &e)
     {
-        std::cerr << "Error processing JSON (nlohmann/json exception): " << e.what() << std::endl;
+        std::cerr << ARROW_RED << "Error processing JSON " << e.what() << std::endl;
         return 1;
     }
     return 0;
+}
+
+// function to verify if the PKGBUILD is malicious
+int verify(std::string path)
+{
+    std::ifstream file(path);
+    if (!file)
+    {
+        std::cerr << ARROW_RED << "Error while trying to read the PKGBUILD.\n";
+        exit(1);
+    }
+
+    std::string prepare_func = extractFunctionBlock(file, "prepare");
+    std::string build_func = extractFunctionBlock(file, "build");
+    std::string package_func = extractFunctionBlock(file, "package");
+
+    // commands black list... i will add more in future
+    std::vector<std::string> blacklist = {
+        "rm -rf /",
+        "sudo ",
+        "dd if=",
+        "mkfs",
+        "wget ",
+        "curl ",
+        ":(){ :|: & };:" // fork bomb
+    };
+
+    int line_num = 0;
+    bool found_something = false;
+
+    // check for prepare() function
+    for (const auto &pattern : blacklist)
+    {
+        if (prepare_func.find(pattern) != std::string::npos)
+        {
+            std::cout << ARROW_RED << "!!! possible malicious command in prepare() function block: '"
+                      << pattern << "'\n";
+            found_something = true;
+            return 1;
+        }
+        else if (build_func.find(pattern) != std::string::npos)
+        {
+            std::cout << ARROW_RED << "!!! possible malicious command in build() function block: '"
+                      << pattern << "'\n";
+            found_something = true;
+            return 1;
+        }
+        else if (package_func.find(pattern) != std::string::npos)
+        {
+            std::cout << ARROW_RED << "!!! possible malicious command in package() function block: '"
+                      << pattern << "'\n";
+            found_something = true;
+            return 1;
+        }
+    }
+
+    if (!found_something)
+    {
+        std::cout << ARROW_GREEN << "No malicious commands found. Continuing....\n";
+    }
+    return 0;
+}
+
+bool askUserConfirmation(const std::string &message)
+{
+    std::string response;
+
+    while (true)
+    {
+        std::cout << ARROW_BLUE << message << " [Y/y/S/s or N/n]: ";
+        std::getline(std::cin, response);
+
+        // Converte para minúsculo para comparar
+        for (auto &c : response)
+            c = std::tolower(c);
+
+        if (/*response.empty() ||*/ response == "S" || response == "s" || response == "Y" || response == "y")
+        {
+            return true;
+        }
+        else if (response == "N" || response == "n")
+        {
+            std::cout << "\x1b[31m\x1b[1m==> \x1b[0m" << "Exited.\n";
+            exit(0);
+        }
+        else
+        {
+            std::cout << "\x1b[31m\x1b[1m==> \x1b[0m" << "Invalid answer. Try Y/y/S/s for confirm or N/n to exit .\n";
+        }
+    }
 }
 
 int install(const std::string &name)
@@ -171,49 +273,92 @@ int install(const std::string &name)
 
     if (fs::exists(temp_dir_path) && fs::is_directory(temp_dir_path))
     {
-        std::cout << "Temporary directory '" << temp_dir_path.string() << "' already exists. Removing it...\n";
-        try {
+        std::cout << ARROW_BLUE << "Temporary directory '" << temp_dir_path.string() << "' already exists. Removing it...\n";
+        try
+        {
             fs::remove_all(temp_dir_path);
-            std::cout << "Temporary directory removed successfully.\n";
-        } catch (const fs::filesystem_error& e) {
-            std::cerr << "Error removing temporary directory: " << e.what() << ". Please remove it manually.\n";
+            std::cout << ARROW_GREEN << "Temporary directory removed successfully.\n";
+        }
+        catch (const fs::filesystem_error &e)
+        {
+            std::cerr << ARROW_RED << "Error removing temporary directory: " << e.what() << ". Please remove it manually.\n";
             return 1;
         }
     }
 
     std::string git_clone_cmd = AUR_CLONE_BASE_URL + name + ".git " + temp_dir_path.string();
-    std::cout << "Executing command: " << git_clone_cmd << "...\n";
+    std::cout << ARROW_BLUE << "Executing command: " << git_clone_cmd << "...\n";
     int result_clone = std::system(git_clone_cmd.c_str());
 
     if (result_clone != 0)
     {
-        std::cerr << "git clone executed with errors! Exit code: " << result_clone << std::endl;
+        std::cerr << ARROW_RED << "git clone executed with errors! Exit code: " << result_clone << std::endl;
         return result_clone;
     }
 
+    std::cout << ARROW_GREEN << "Command executed with sucess!\n";
+    // objetividade: ser transparente com o usuario final
+
+    std::cout << ARROW_BLUE << "Now start the PKGBUILD verification for possible malicious commands...\n";
+    std::string pkgbuild_path = temp_dir_path.string() + "/PKGBUILD";
+
+    int vres = verify(pkgbuild_path);
+    bool accepted = false;
+
+    if (vres != 1)
+    {
+        std::cout << ARROW_GREEN << "Verified and the PKGBUILD don't have any malicious command...\n";
+    }
+    else if (vres == 1)
+    {
+        accepted = askUserConfirmation("Malicious command found!! Do you want continue (remembering that this could break your system or worse!)? ");
+    }
+
     std::string makepkg_cmd = "cd " + temp_dir_path.string() + " && makepkg -si --noconfirm";
-    std::cout << "Command executed successfully! Now calling makepkg...\n";
-    int result_makepkg = std::system(makepkg_cmd.c_str());
+    int result_makepkg = 1;
+
+    if (accepted == true)
+    {
+        std::cout << ARROW_BLUE << "Now calling makepkg with command: " << makepkg_cmd << "...\n";
+        if (askUserConfirmation("Do you want continue? This will install the '" + name + "' package") == true)
+        {
+            result_makepkg = std::system(makepkg_cmd.c_str());
+        }
+    }
+    else
+    {
+        std::cout << ARROW_BLUE << "Now calling makepkg with command: " << makepkg_cmd << "...\n";
+        if (askUserConfirmation("Do you want continue? This will install the '" + name + "' package") == true)
+        {
+            result_makepkg = std::system(makepkg_cmd.c_str());
+        }
+    }
 
     if (result_makepkg != 0)
     {
-        std::cerr << "Makepkg executed with errors! Exit code: " << result_makepkg << ". Try with another package (type -search <name> for more packages).\n";
-        try {
+        std::cerr << ARROW_RED << "Makepkg executed with errors! Exit code: " << result_makepkg << ". Try with another package (type -search <name> for more packages).\n";
+        try
+        {
             fs::remove_all(temp_dir_path);
-            std::cout << "Temporary directory cleaned after makepkg error.\n";
-        } catch (const fs::filesystem_error& e) {
-            std::cerr << "Could not clean the directory '" << temp_dir_path.string() << "' after makepkg error: " << e.what() << ". Please remove it manually.\n";
+            std::cout << ARROW_GREEN << "Temporary directory cleaned after makepkg error.\n";
+        }
+        catch (const fs::filesystem_error &e)
+        {
+            std::cerr << ARROW_RED << "Could not clean the directory '" << temp_dir_path.string() << "' after makepkg error: " << e.what() << ". Please remove it manually.\n";
         }
         return result_makepkg;
     }
 
-    std::cout << "Makepkg executed successfully! Package installed! Now cleaning the " << name << " directory...\n";
-    try {
+    std::cout << ARROW_RED << "Makepkg executed successfully! Package installed!\n" << ARROW_BLUE << "Now cleaning the " << name << " directory...\n";
+    try
+    {
         fs::remove_all(temp_dir_path);
-        std::cout << "Package installed and temporary files cleaned successfully.\n";
+        std::cout << ARROW_GREEN << "Package installed and temporary files cleaned successfully.\n";
         return 0;
-    } catch (const fs::filesystem_error& e) {
-        std::cerr << "Could not clean the directory '" << temp_dir_path.string() << "': " << e.what() << ". Please remove it manually.\n";
+    }
+    catch (const fs::filesystem_error &e)
+    {
+        std::cerr << ARROW_RED << "Could not clean the directory '" << temp_dir_path.string() << "': " << e.what() << ". You can remove it manually.\n";
         return 1;
     }
 }
@@ -232,12 +377,13 @@ int main(int argc, char *args[])
 {
     if (argc < 2)
     {
-        std::cerr << "No argument specified! Try merge -help to see a list of options!\n";
+        std::cerr << ARROW_RED << "No argument specified! Try merge -help to see a list of options!\n";
         return 1;
     }
 
     std::vector<std::string> arguments;
-    for (int i = 1; i < argc; ++i) {
+    for (int i = 1; i < argc; ++i)
+    {
         arguments.push_back(args[i]);
     }
 
@@ -247,32 +393,43 @@ int main(int argc, char *args[])
     {
         if (arguments.size() < 2)
         {
-            std::cerr << "Missing package name for -search. Try merge -help.\n";
+            std::cerr << ARROW_RED << "Missing package name for -search. Try merge -help.\n";
             return 1;
         }
 
         std::string packageName = "";
         int limit = 0;
 
-        for (size_t i = 1; i < arguments.size(); ++i) {
-            if (isInteger(arguments[i])) {
-                if (limit == 0) {
+        for (size_t i = 1; i < arguments.size(); ++i)
+        {
+            if (isInteger(arguments[i]))
+            {
+                if (limit == 0)
+                {
                     limit = std::stoi(arguments[i]);
-                } else {
-                    std::cerr << "Multiple numerical arguments found for -search. Expected one limit or none.\n";
+                }
+                else
+                {
+                    std::cerr << ARROW_RED << "Multiple numerical arguments found for -search. Expected one limit or none.\n";
                     return 1;
                 }
-            } else {
-                if (packageName.empty()) {
+            }
+            else
+            {
+                if (packageName.empty())
+                {
                     packageName = arguments[i];
-                } else {
+                }
+                else
+                {
                     packageName += " " + arguments[i];
                 }
             }
         }
 
-        if (packageName.empty()) {
-            std::cerr << "Missing package name for -search. Try merge -help.\n";
+        if (packageName.empty())
+        {
+            std::cerr << ARROW_RED << "Missing package name for -search. Try merge -help.\n";
             return 1;
         }
 
@@ -282,7 +439,7 @@ int main(int argc, char *args[])
     {
         if (arguments.size() < 2)
         {
-            std::cerr << "Missing package name for -install. Try merge -help.\n";
+            std::cerr << ARROW_RED << "Missing package name for -install. Try merge -help.\n";
             return 1;
         }
         std::string packageName = arguments[1];
@@ -300,11 +457,11 @@ int main(int argc, char *args[])
 
         int current_year = (local_tm) ? (local_tm->tm_year + 1900) : 0;
 
-        printf("Version: %i.%i\nAuthor:%s - %i\nLibs used: %s\n", APP_MAJOR_VERSION, APP_MINOR_VERSION, APP_AUTHOR, current_year, APP_LIBS_USED);
+        printf("Version: %i.%i-%i\nAuthor:%s - %i\nLibs used: %s\n", APP_MAJOR_VERSION, APP_MINOR_VERSION, APP_RELEASE, APP_AUTHOR, current_year, APP_LIBS_USED);
     }
     else
     {
-        std::cerr << "Invalid argument! Try merge -help to see a list of options!\n";
+        std::cerr << ARROW_RED << "Invalid argument! Try merge -help to see a list of options!\n";
         return 1;
     }
 
